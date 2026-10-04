@@ -10,6 +10,9 @@ services:
       - "${APP_PORT:-8000}:8000"
     volumes:
       - finance-data:/data
+    labels:
+      # Adds a "WebUI" entry to the container's menu in Unraid's Docker tab.
+      net.unraid.docker.webui: "http://[IP]:[PORT:8000]/"
 
 volumes:
   finance-data:
