@@ -73,7 +73,12 @@
           public_token,
           metadata: { institution: metadata.institution || null },
         }),
-        onExit: (err) => { if (err) toast(err.display_message || err.error_message || "Plaid Link closed."); },
+        onExit: (err) => {
+          if (!err) return;
+          // Include Plaid's error code (e.g. MFA_NOT_SUPPORTED) so the cause can be looked up.
+          const text = err.display_message || err.error_message || "Plaid Link closed.";
+          toast(err.error_code ? `${text} (${err.error_code})` : text);
+        },
       });
       handler.open();
     }),
