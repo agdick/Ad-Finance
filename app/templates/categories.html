@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Categories · Finance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Categories &amp; limits</h1>
+  <span class="muted">Monthly limits total {{ total_limit|money }}</span>
+</div>
+
+<section class="card flush">
+  <div class="card-head"><h2>Categories</h2><span class="muted" style="font-size:.85rem">Blank alert % uses the default ({{ default_thresholds }})</span></div>
+  {% for c in cats %}
+  <form method="post" action="/categories/{{ c.id }}" class="list-row" style="flex-wrap:wrap;{{ 'opacity:.6' if c.archived }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div style="display:grid;grid-template-columns:minmax(140px,2fr) minmax(100px,1fr) minmax(110px,1fr) minmax(90px,1fr);gap:8px;flex:1;min-width:280px">
+      <input name="name" value="{{ c.name }}" aria-label="Name">
+      <select name="kind" aria-label="Kind"><option value="expense" {{ 'selected' if c.kind == 'expense' }}>Spending</option><option value="income" {{ 'selected' if c.kind == 'income' }}>Income</option></select>
+      <input name="monthly_limit" inputmode="decimal" placeholder="{{ 'n/a' if c.kind == 'income' else 'No limit' }}" value="{{ c.monthly_limit|money_input }}" aria-label="Monthly limit" {{ 'disabled' if c.kind == 'income' }}>
+      <input name="alert_thresholds" placeholder="Alert %" value="{{ c.alert_thresholds or '' }}" aria-label="Alert thresholds" {{ 'disabled' if c.kind == 'income' }}>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="small" type="submit">Save</button>
+      <button class="link {{ '' if c.archived else 'danger' }}" type="submit" formaction="/categories/{{ c.id }}/archive" style="font-size:.85rem">{{ 'Restore' if c.archived else 'Archive' }}</button>
+    </div>
+  </form>
+  {% endfor %}
+  <form method="post" action="/categories" class="list-row" style="flex-wrap:wrap;background:#fbfbf9">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div style="display:grid;grid-template-columns:minmax(140px,2fr) minmax(100px,1fr) minmax(110px,1fr);gap:8px;flex:1;min-width:280px">
+      <input name="name" placeholder="New category" required>
+      <select name="kind"><option value="expense">Spending</option><option value="income">Income</option></select>
+      <input name="monthly_limit" inputmode="decimal" placeholder="Monthly limit">
+    </div>
+    <button class="small primary" type="submit">Add</button>
+  </form>
+</section>
+<p class="muted" style="font-size:.85rem">Income categories (e.g. Paycheque) are reported separately and never count toward limits. Archiving hides a category from pickers but keeps its history.</p>
+
+<section class="card flush" id="rules">
+  <div class="card-head"><h2>Payee rules</h2><span class="muted" style="font-size:.85rem">Checked first when suggesting a category</span></div>
+  {% for r in rules %}
+  <div class="list-row">
+    <div class="main"><span class="muted">{{ {'exact':'is','contains':'contains','starts_with':'starts with'}[r.match_type] }}</span> <strong>{{ r.match_value }}</strong>
+      → {% if r.category %}{{ r.category.name }}{% endif %}{% if r.mark_transfer %}{{ ' + ' if r.category }}<span class="pill">transfer</span>{% endif %}</div>
+    <form class="inline" method="post" action="/rules/{{ r.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link danger" type="submit">Delete</button></form>
+  </div>
+  {% else %}
+  <div class="empty">No rules yet. Tick “Always” when confirming a transaction, or add one below.</div>
+  {% endfor %}
+  <form method="post" action="/rules" class="list-row" style="flex-wrap:wrap;background:#fbfbf9">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div style="display:grid;grid-template-columns:minmax(110px,1fr) minmax(140px,2fr) minmax(140px,1.5fr);gap:8px;flex:1;min-width:280px">
+      <select name="match_type"><option value="contains">Payee contains</option><option value="exact">Payee is</option><option value="starts_with">Starts with</option></select>
+      <input name="match_value" placeholder="e.g. NETFLIX" required>
+      {% with categories=active, selected=none, name='category_id' %}{% include "partials/category_select.html" %}{% endwith %}
+    </div>
+    <label class="check" style="font-size:.85rem"><input type="checkbox" name="mark_transfer" value="1"> Transfer</label>
+    <button class="small primary" type="submit">Add rule</button>
+  </form>
+</section>
+{% endblock %}

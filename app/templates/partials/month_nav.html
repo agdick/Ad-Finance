@@ -1,0 +1,5 @@
+<div class="month-nav">
+  <a href="{{ base }}?month={{ shift_month(month, -1) }}{{ extra or '' }}" aria-label="Previous month">‹</a>
+  <span class="label">{{ month|month_label }}</span>
+  <a href="{{ base }}?month={{ shift_month(month, 1) }}{{ extra or '' }}" aria-label="Next month">›</a>
+</div>

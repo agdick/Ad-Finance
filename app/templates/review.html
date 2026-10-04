@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Review · Finance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Review</h1>
+  <span class="muted">{{ txns|length }} awaiting confirmation</span>
+</div>
+{% if txns %}
+<form method="post" action="/review" id="review-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <section class="card flush">
+    <div class="card-head">
+      <label class="check"><input type="checkbox" id="select-all"> Select all</label>
+      <div style="display:flex;gap:8px">
+        <button type="submit" name="action" value="selected">Confirm selected</button>
+        <button class="primary" type="submit" name="action" value="all">Confirm all</button>
+      </div>
+    </div>
+    <div class="scroll-x">
+    <table>
+      <thead><tr><th></th><th>Date</th><th>Payee</th><th>Category</th><th class="num">Amount</th><th class="hide-sm">Always</th></tr></thead>
+      <tbody>
+      {% for t in txns %}
+      <tr>
+        <td><input type="checkbox" name="select" value="{{ t.id }}" class="row-check"></td>
+        <td class="muted" style="white-space:nowrap">{{ t.date|short_date }}</td>
+        <td>
+          <span class="txn-payee">{{ t.payee_clean or t.payee_raw }}</span>{% if t.is_pending %} <span class="pill">pending</span>{% endif %}
+          <div class="txn-sub">{{ t.account.display_name }}{% if t.suggestion_source %} · suggested from {{ {'rule':'your rule','history':'history','provider':'bank category'}[t.suggestion_source] or t.suggestion_source }}{% endif %}</div>
+        </td>
+        <td>{% with categories=categories, selected=t.category_id, name='cat_%d'|format(t.id), cls='inline' %}{% include "partials/category_select.html" %}{% endwith %}</td>
+        <td class="num {{ 'amount-in' if t.amount > 0 }}">{{ t.amount|money_signed if t.amount > 0 else t.amount|money }}</td>
+        <td class="hide-sm"><label class="check" title="Always categorize this payee this way"><input type="checkbox" name="always_{{ t.id }}" value="1"></label></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+  <p class="muted" style="font-size:.85rem">“Confirm all” confirms every row that has a category. Rows left as Uncategorized stay here. Tick “Always” to create a payee rule.
+    Transfers are handled separately and never appear here.</p>
+</form>
+{% else %}
+<div class="card empty">Nothing to review. New transactions will appear here with a suggested category.</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+  const all = document.getElementById('select-all');
+  if (all) all.addEventListener('change', () => document.querySelectorAll('.row-check').forEach(c => c.checked = all.checked));
+  // Changing a category ticks the row so "Confirm selected" picks it up.
+  document.querySelectorAll('#review-form select').forEach(s => s.addEventListener('change', () => {
+    const box = s.closest('tr').querySelector('.row-check'); if (box) box.checked = true;
+  }));
+</script>
+{% endblock %}

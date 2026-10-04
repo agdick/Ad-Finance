@@ -1,0 +1,26 @@
+{# expects: goal (or None), accounts #}
+{% set linked = goal.accounts|map(attribute='id')|list if goal else [] %}
+<div class="form-grid">
+  <div class="field"><label>Name</label><input name="name" required value="{{ goal.name if goal else '' }}" placeholder="e.g. Emergency fund"></div>
+  <div class="field"><label>Type</label>
+    <select name="type" class="js-goal-type">
+      <option value="savings" {{ 'selected' if not goal or goal.type == 'savings' }}>Savings</option>
+      <option value="debt" {{ 'selected' if goal and goal.type == 'debt' }}>Debt payoff</option>
+    </select></div>
+  <div class="field"><label class="js-target-label">Target amount</label><input name="target_amount" inputmode="decimal" required value="{{ goal.target_amount|money_input if goal else '' }}"></div>
+  <div class="field"><label>Target date (optional)</label><input type="date" name="target_date" value="{{ goal.target_date.isoformat() if goal and goal.target_date else '' }}"></div>
+</div>
+<div class="field js-source">
+  <label>Track progress with</label>
+  <div class="seg">
+    <label><input type="radio" name="progress_source" value="accounts" {{ 'checked' if not goal or goal.progress_source == 'accounts' }}><span>Linked account balances</span></label>
+    <label><input type="radio" name="progress_source" value="contributions" {{ 'checked' if goal and goal.progress_source == 'contributions' }}><span>Contributions I record</span></label>
+  </div>
+</div>
+<div class="field">
+  <label>Linked accounts</label>
+  {% for a in accounts %}
+  <label class="check" style="margin:4px 0"><input type="checkbox" name="account_ids" value="{{ a.id }}" {{ 'checked' if a.id in linked }}> {{ a.display_name }} <span class="muted">· {{ a.type_label }}</span></label>
+  {% else %}<small class="muted">No accounts yet.</small>{% endfor %}
+  <small class="muted">For debt goals, link the loan or credit card. Set the target to the amount owed when you started.</small>
+</div>

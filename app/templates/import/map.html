@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Map columns · Finance{% endblock %}
+{% block content %}
+{% macro colselect(name, value, optional=true) -%}
+<select name="{{ name }}">
+  {% if optional %}<option value="">—</option>{% endif %}
+  {% for h in header %}<option value="{{ h }}" {{ 'selected' if h == value }}>{{ h }}</option>{% endfor %}
+</select>
+{%- endmacro %}
+<div class="page-head">
+  <h1>Map columns</h1>
+  <span class="muted">{{ filename or 'Upload' }} → {{ account.display_name }} · {{ row_count }} rows</span>
+</div>
+{% if saved %}<div class="flash">Using the saved mapping for {{ institution }}. Check the preview, then import.</div>{% endif %}
+
+<form method="post" action="/import/map">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="account_id" value="{{ account.id }}">
+  <section class="card">
+    <div class="form-grid">
+      <div class="field"><label>Date column</label>{{ colselect('date_col', mapping.date_col, false) }}</div>
+      <div class="field"><label>Date format</label>
+        <select name="date_format">
+          <option value="auto" {{ 'selected' if mapping.date_format == 'auto' }}>Detect automatically</option>
+          {% for f in date_formats %}<option value="{{ f }}" {{ 'selected' if mapping.date_format == f }}>{{ f.replace('%Y','YYYY').replace('%y','YY').replace('%m','MM').replace('%d','DD').replace('%b','Mon').replace('%B','Month').replace('%H:%M:%S','hh:mm:ss') }}</option>{% endfor %}
+        </select>
+        {% if parsed and parsed.date_format and mapping.date_format == 'auto' %}<small class="muted">Detected {{ parsed.date_format.replace('%Y','YYYY').replace('%y','YY').replace('%m','MM').replace('%d','DD').replace('%b','Mon') }}</small>{% endif %}
+      </div>
+      <div class="field"><label>Description column(s)</label>
+        <select name="description_cols" multiple size="{{ [header|length, 4]|min }}">
+          {% for h in header %}<option value="{{ h }}" {{ 'selected' if h in mapping.description_cols }}>{{ h }}</option>{% endfor %}
+        </select><small class="muted">Ctrl/⌘-click to combine several.</small></div>
+    </div>
+    {% set split = (mapping.debit_col or mapping.credit_col) and not mapping.amount_col %}
+    <div class="field">
+      <label>Amounts are in</label>
+      <div class="seg">
+        <label><input type="radio" name="amount_mode" value="single" {{ 'checked' if not split }}><span>One column</span></label>
+        <label><input type="radio" name="amount_mode" value="split" {{ 'checked' if split }}><span>Separate debit / credit columns</span></label>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Amount column</label>{{ colselect('amount_col', mapping.amount_col) }}</div>
+      <div class="field"><label>Debit (money out)</label>{{ colselect('debit_col', mapping.debit_col) }}</div>
+      <div class="field"><label>Credit (money in)</label>{{ colselect('credit_col', mapping.credit_col) }}</div>
+      <div class="field"><label>Balance (optional)</label>{{ colselect('balance_col', mapping.balance_col) }}</div>
+      <div class="field"><label>Category (optional)</label>{{ colselect('category_col', mapping.category_col) }}</div>
+      <div class="field"><label>Skip lines at top</label><input type="number" min="0" name="skip_rows" value="{{ mapping.skip_rows }}"></div>
+    </div>
+    <div class="field"><label class="check"><input type="checkbox" name="invert_amounts" value="1" {{ 'checked' if mapping.invert_amounts }}> Purchases appear as positive numbers (flip signs)</label></div>
+    <div class="field"><label class="check"><input type="checkbox" name="has_header" value="1" {{ 'checked' if mapping.has_header }}> First row is a header</label></div>
+    <div class="form-grid" style="align-items:end">
+      <div class="field"><label>Institution (mapping name)</label><input name="institution" value="{{ institution }}" placeholder="e.g. RBC"></div>
+      <div class="field"><label class="check"><input type="checkbox" name="save_mapping" value="1" checked> Save this mapping for next time</label></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="submit" name="action" value="preview">Update preview</button>
+      <button class="primary" type="submit" name="action" value="import" {{ 'disabled' if problems or not parsed or not parsed.rows }}>Import {{ parsed.rows|length if parsed else '' }} rows</button>
+    </div>
+  </section>
+</form>
+
+{% if problems %}<div class="flash error">{{ problems|join(' ') }}</div>{% endif %}
+{% if parsed %}
+  {% if parsed.errors %}<div class="flash error">{{ parsed.errors|length }} row(s) can't be read and will be skipped: {{ parsed.errors[:5]|join('; ') }}{% if parsed.errors|length > 5 %}…{% endif %}</div>{% endif %}
+  <section class="card flush">
+    <div class="card-head"><h2>Preview</h2><span class="muted">How rows will be imported (money out is negative)</span></div>
+    <div class="scroll-x"><table class="preview">
+      <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th>{% if mapping.balance_col %}<th class="num">Balance</th>{% endif %}{% if mapping.category_col %}<th>Category</th>{% endif %}</tr></thead>
+      {% for r in parsed.rows[:15] %}
+      <tr><td>{{ r.date.isoformat() }}</td><td>{{ r.description }}</td><td class="num {{ 'amount-in' if r.amount > 0 }}">{{ r.amount|money }}</td>
+        {% if mapping.balance_col %}<td class="num">{{ r.balance|money }}</td>{% endif %}{% if mapping.category_col %}<td>{{ r.category or '' }}</td>{% endif %}</tr>
+      {% endfor %}
+    </table></div>
+  </section>
+{% endif %}
+
+<section class="card flush">
+  <div class="card-head"><h2>File</h2><span class="muted">First rows as uploaded</span></div>
+  <div class="scroll-x"><table class="preview">
+    <thead><tr>{% for h in header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    {% for r in raw_rows %}<tr>{% for c in r %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

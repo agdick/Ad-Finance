@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Accounts · Finance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Accounts</h1>
+  <div class="actions">
+    {% if connections %}
+    <form method="post" action="/sync" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Sync now</button></form>
+    {% endif %}
+    {% for p in providers %}<button class="primary js-link" data-provider="{{ p.name }}">Connect a bank</button>{% endfor %}
+    <a class="btn" href="/import">Import CSV</a>
+    <a class="btn" href="/accounts/new">Add account</a>
+  </div>
+</div>
+
+{% for c in connections if c.needs_reconnect or c.status == 'error' %}
+<div class="banner {{ 'over' if c.status == 'error' else '' }}">
+  <span><strong>{{ c.institution_name or 'Bank connection' }}</strong>:
+    {% if c.status == 'login_required' %}needs you to sign in again.{% elif c.status == 'pending_expiration' %}access is about to expire.{% else %}last sync failed.{% endif %}
+    <small>{{ c.status_detail or '' }}</small></span>
+  {% if c.needs_reconnect %}<button class="small js-link" data-provider="{{ c.provider }}" data-connection="{{ c.id }}">Reconnect</button>{% endif %}
+</div>
+{% endfor %}
+
+{% for g in groups %}
+<section class="card flush">
+  <div class="card-head"><h2>{{ g.label }}</h2><span class="muted">{{ g.subtotal|money }}{% if g.liability %} owed{% endif %}</span></div>
+  {% for a in g.accounts %}
+  <div class="list-row">
+    <div class="main">
+      <div class="title">{{ a.display_name }}{% if a.archived %} <span class="pill">archived</span>{% endif %}
+        {% if a.connection and a.connection.needs_reconnect %}<button class="small js-link" data-provider="{{ a.connection.provider }}" data-connection="{{ a.connection.id }}" style="margin-left:6px">Reconnect</button>{% endif %}
+      </div>
+      <div class="txn-sub">
+        {{ a.institution or '' }}{% if a.subtype %}{{ ' · ' if a.institution }}{{ a.subtype }}{% endif %}
+        · {% if a.source == 'plaid' %}synced {{ a.last_synced_at|ago }}{% elif a.source == 'csv' %}CSV import{% else %}manual{% endif %}
+        {% if a.interest_rate is not none %} · {{ '%.2f'|format(a.interest_rate) }}%{% endif %}
+        {% if a.min_payment %} · min {{ a.min_payment|money }}{% endif %}
+        {% if a.next_payment_due %} · due {{ a.next_payment_due|short_date }}{% endif %}
+      </div>
+      {% if a.holdings %}
+      <details class="more"><summary>{{ a.holdings|length }} holding{{ 's' if a.holdings|length != 1 }}</summary>
+        <table class="preview">{% for h in a.holdings|sort(attribute='value', reverse=true) %}
+          <tr><td>{{ h.ticker or '' }}</td><td>{{ h.name }}</td><td class="num">{{ '%g'|format(h.quantity) if h.quantity is not none else '' }}</td><td class="num">{{ h.value|money }}</td></tr>
+        {% endfor %}</table>
+      </details>
+      {% endif %}
+    </div>
+    <div class="right">
+      <div>{{ a.current_balance|money(blank='—') }}</div>
+      <div style="font-size:.85rem;display:flex;gap:10px;justify-content:flex-end">
+        <a href="/transactions?account={{ a.id }}">Transactions</a>
+        {% if a.source != 'plaid' %}<a href="/import?account={{ a.id }}">Import</a>{% endif %}
+        <a href="/accounts/{{ a.id }}/edit">Edit</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<div class="card empty">
+  No accounts yet.<br>
+  {% if providers %}Connect a bank, {% endif %}<a href="/import">import a CSV</a>, or <a href="/accounts/new">add an account</a> to get started.
+</div>
+{% endfor %}
+
+{% if groups %}
+<section class="card">
+  <div class="total">
+    <span class="muted">Total (accounts minus debts)</span>
+    <strong>{{ (assets - debts)|money }}</strong>
+  </div>
+</section>
+{% endif %}
+<p style="font-size:.9rem"><a href="/accounts?show_archived={{ 0 if show_archived else 1 }}">{{ 'Hide' if show_archived else 'Show' }} archived accounts</a> · <a href="/settings">Bank connections</a></p>
+{% if not providers %}<p class="muted" style="font-size:.85rem">Bank sync is off: set <code>PLAID_CLIENT_ID</code> and <code>PLAID_SECRET</code> in <code>.env</code> to enable “Connect a bank”. CSV import and manual entry work without it.</p>{% endif %}
+{% endblock %}

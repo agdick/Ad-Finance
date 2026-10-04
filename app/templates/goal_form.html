@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Edit goal · Finance{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ goal.name }}</h1><a class="btn" href="/goals">Back</a></div>
+<form method="post" action="/goals/{{ goal.id }}/edit" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% include "partials/goal_fields.html" %}
+  <button class="primary" type="submit">Save</button>
+</form>
+<form method="post" action="/goals/{{ goal.id }}/delete" onsubmit="return confirm('Delete this goal?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link danger" type="submit">Delete goal</button>
+</form>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if txn else 'Add' }} transaction · Finance{% endblock %}
+{% block content %}
+{% set locked = txn and txn.source == 'plaid' %}
+{% set v = values %}
+<div class="page-head">
+  <h1>{{ 'Transaction' if txn else 'Add transaction' }}</h1>
+  {% if txn %}<a class="btn" href="{{ back }}">Back</a>{% endif %}
+</div>
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+
+<form method="post" class="card" action="{{ '/transactions/%d'|format(txn.id) if txn else '/transactions/new' }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% if txn %}<input type="hidden" name="back" value="{{ back }}">{% endif %}
+  {% if locked %}
+  <p class="muted">Synced from your bank{% if txn.is_pending %} (pending){% endif %}. Date and amount come from the bank; you can change the name, category, note and transfer flag.</p>
+  <dl class="kv" style="margin-bottom:16px">
+    <dt>Date</dt><dd>{{ txn.date.isoformat() }}</dd>
+    <dt>Amount</dt><dd class="{{ 'amount-in' if txn.amount > 0 }}">{{ txn.amount|money_signed if txn.amount > 0 else txn.amount|money }}</dd>
+    <dt>Account</dt><dd>{{ txn.account.display_name }}</dd>
+    <dt>Bank text</dt><dd>{{ txn.payee_raw }}</dd>
+    {% if txn.provider_category %}<dt>Bank category</dt><dd>{{ txn.provider_category }}</dd>{% endif %}
+  </dl>
+  {% else %}
+  {% set amt = txn.amount if txn else none %}
+  <div class="form-grid">
+    <div class="field"><label>Date</label><input type="date" name="date" required value="{{ txn.date.isoformat() if txn else (v.date or today.isoformat()) }}"></div>
+    <div class="field"><label>Account</label>
+      <select name="account_id" required>
+        {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if (txn and txn.account_id == a.id) or (not txn and v.account_id|string == a.id|string) }}>{{ a.display_name }}</option>{% endfor %}
+      </select>
+      {% if not accounts %}<small><a href="/accounts/new">Create an account first</a></small>{% endif %}
+    </div>
+    <div class="field"><label>Amount</label><input name="amount" inputmode="decimal" required placeholder="0.00" value="{{ (amt|abs)|money_input if amt is not none else (v.amount or '') }}"></div>
+    <div class="field"><label>Type</label>
+      {% set dir = ('in' if amt and amt > 0 else 'out') if txn else (v.direction or 'out') %}
+      <div class="seg">
+        <label><input type="radio" name="direction" value="out" {{ 'checked' if dir == 'out' }}><span>Money out</span></label>
+        <label><input type="radio" name="direction" value="in" {{ 'checked' if dir == 'in' }}><span>Money in</span></label>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="form-grid">
+    <div class="field"><label>Payee</label><input name="payee" {{ 'required' if not txn }} value="{{ txn.payee_clean if txn else (v.payee or '') }}"></div>
+    <div class="field"><label>Category</label>
+      {% with categories=categories, selected=(txn.category_id if txn else (v.category_id|int if v.category_id else none)), name='category_id' %}{% include "partials/category_select.html" %}{% endwith %}
+      {% if txn and txn.category_status == 'suggested' and txn.category_id %}<small class="muted">Suggested{% if txn.suggestion_source %} by {{ txn.suggestion_source }}{% endif %}; saving confirms it.</small>{% endif %}
+    </div>
+  </div>
+  <div class="field"><label>Note</label><input name="note" value="{{ txn.note or '' if txn else (v.note or '') }}"></div>
+  {% if txn %}
+  <div class="field">
+    <label class="check"><input type="checkbox" name="is_transfer" value="1" {{ 'checked' if txn.is_transfer }}> Transfer between my accounts (not spending)</label>
+    {% if txn.is_transfer %}<small class="muted">
+      {% if txn.transfer_source == 'auto' %}Detected automatically{% if partner %}, paired with {{ partner.account.display_name }} on {{ partner.date|short_date }}{% endif %}.
+      {% elif txn.transfer_source == 'rule' %}Flagged by a payee rule.{% else %}Marked by you.{% endif %}</small>{% endif %}
+  </div>
+  <div class="field"><label class="check"><input type="checkbox" name="always" value="1"> Always categorize “{{ txn.payee_clean }}” this way</label></div>
+  {% endif %}
+  <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">
+    <button class="primary" type="submit">{{ 'Save' if txn else 'Add transaction' }}</button>
+  </div>
+</form>
+{% if txn and not locked %}
+<form method="post" action="/transactions/{{ txn.id }}/delete" onsubmit="return confirm('Delete this transaction?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}">
+  <button class="link danger" type="submit">Delete transaction</button>
+</form>
+{% endif %}
+{% endblock %}

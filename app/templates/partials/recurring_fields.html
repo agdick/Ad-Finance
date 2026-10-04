@@ -1,0 +1,19 @@
+{# expects: item (or None), frequencies, accounts, categories #}
+<div class="form-grid">
+  <div class="field"><label>Name</label><input name="name" required value="{{ item.name if item else '' }}" placeholder="e.g. Rogers Internet"></div>
+  <div class="field"><label>Amount</label><input name="amount" inputmode="decimal" required value="{{ (item.amount|abs)|money_input if item else '' }}"></div>
+  <div class="field"><label>Type</label>
+    <div class="seg">
+      <label><input type="radio" name="direction" value="out" {{ 'checked' if not item or item.amount < 0 }}><span>Bill</span></label>
+      <label><input type="radio" name="direction" value="in" {{ 'checked' if item and item.amount > 0 }}><span>Income</span></label>
+    </div>
+  </div>
+  <div class="field"><label>Frequency</label>
+    <select name="frequency">{% for k, label in frequencies.items() %}<option value="{{ k }}" {{ 'selected' if (item and item.frequency == k) or (not item and k == 'monthly') }}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="field"><label>Next due</label><input type="date" name="next_due" value="{{ item.next_due.isoformat() if item and item.next_due else '' }}"></div>
+  <div class="field"><label>Category</label>{% with selected=(item.category_id if item else none), name='category_id' %}{% include "partials/category_select.html" %}{% endwith %}</div>
+  <div class="field"><label>Account</label>
+    <select name="account_id"><option value="">Any account</option>
+      {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if item and item.account_id == a.id }}>{{ a.display_name }}</option>{% endfor %}</select></div>
+  <div class="field"><label>Match payee</label><input name="payee_match" value="{{ item.payee_match or '' if item else '' }}" placeholder="Defaults to the name"></div>
+</div>

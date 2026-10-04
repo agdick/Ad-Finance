@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Import CSV · Finance{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Import CSV</h1><a class="btn" href="/accounts">Accounts</a></div>
+<form method="post" action="/import/upload" enctype="multipart/form-data" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <div class="form-grid">
+    <div class="field"><label>Into account</label>
+      <select name="account_id" required>
+        <option value="">Choose…</option>
+        {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if selected == a.id }}>{{ a.display_name }}{% if a.institution %} ({{ a.institution }}){% endif %}</option>{% endfor %}
+      </select>
+      <small><a href="/accounts/new?next=import">New account…</a></small>
+    </div>
+    <div class="field"><label>CSV file</label><input type="file" name="file" accept=".csv,text/csv,text/plain" required></div>
+  </div>
+  <button class="primary" type="submit">Continue</button>
+  <p class="muted" style="margin-top:12px;font-size:.88rem">Next you'll match the file's columns. Mappings are saved per institution and reused automatically.
+    Re-importing an overlapping file is safe: rows already present (from an earlier CSV or from bank sync) are skipped.</p>
+</form>
+
+{% if mappings %}
+<section class="card flush">
+  <div class="card-head"><h2>Saved mappings</h2></div>
+  {% for m in mappings %}
+  <div class="list-row"><span>{{ m.institution }}</span>
+    <form class="inline" method="post" action="/import/mappings/{{ m.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link danger" type="submit">Delete</button></form></div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if batches %}
+<section class="card flush">
+  <div class="card-head"><h2>Recent imports</h2></div>
+  <table>
+    <thead><tr><th>When</th><th>File</th><th class="num">New</th><th class="num">Skipped</th></tr></thead>
+    {% for b in batches %}<tr><td class="muted">{{ b.created_at.strftime('%b %-d %H:%M') }}</td><td>{{ b.filename or '' }}</td><td class="num">{{ b.inserted }}</td><td class="num">{{ b.duplicates }}</td></tr>{% endfor %}
+  </table>
+</section>
+{% endif %}
+{% endblock %}

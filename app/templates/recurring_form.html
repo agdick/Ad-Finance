@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Edit recurring · Finance{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ item.name }}</h1><a class="btn" href="/recurring">Back</a></div>
+<form method="post" action="/recurring/{{ item.id }}/edit" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% include "partials/recurring_fields.html" %}
+  <button class="primary" type="submit">Save{% if item.status == 'detected' %} and confirm{% endif %}</button>
+</form>
+<form method="post" action="/recurring/{{ item.id }}/delete" onsubmit="return confirm('Delete this recurring item?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link danger" type="submit">Delete</button>
+</form>
+{% endblock %}

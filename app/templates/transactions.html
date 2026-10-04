@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Transactions · Finance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Transactions</h1>
+  <div class="actions">
+    {% if not use_range %}
+      {% set extra %}{% for k, v in filters.items() if v and k not in ('start','end') %}&{{ k }}={{ v|urlencode }}{% endfor %}{% endset %}
+      {% with base='/transactions' %}{% include "partials/month_nav.html" %}{% endwith %}
+    {% endif %}
+    <a class="btn primary" href="/transactions/new">Add</a>
+  </div>
+</div>
+
+<form class="card" method="get" action="/transactions">
+  {% if not use_range %}<input type="hidden" name="month" value="{{ month }}">{% endif %}
+  <div class="filters">
+    <div><label>Search</label><input type="search" name="q" value="{{ filters.q }}" placeholder="Payee or note"></div>
+    <div><label>Account</label>
+      <select name="account"><option value="">All accounts</option>
+        {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if filters.account == a.id|string }}>{{ a.display_name }}</option>{% endfor %}
+      </select></div>
+    <div><label>Category</label>
+      <select name="category"><option value="">All categories</option>
+        <option value="none" {{ 'selected' if filters.category == 'none' }}>Uncategorized</option>
+        <option value="transfer" {{ 'selected' if filters.category == 'transfer' }}>Transfers</option>
+        {% for c in categories %}<option value="{{ c.id }}" {{ 'selected' if filters.category == c.id|string }}>{{ c.name }}</option>{% endfor %}
+      </select></div>
+    <div><button type="submit">Filter</button> {% if filtered or use_range %}<a class="btn link" href="/transactions?month={{ month }}" style="margin-left:8px">Clear</a>{% endif %}</div>
+  </div>
+  <details class="more" {{ 'open' if use_range or filters.min_amount or filters.max_amount or filters.status or filters.kind }}>
+    <summary>More filters</summary>
+    <div class="filters">
+      <div><label>From</label><input type="date" name="start" value="{{ filters.start }}"></div>
+      <div><label>To</label><input type="date" name="end" value="{{ filters.end }}"></div>
+      <div><label>Min amount</label><input name="min_amount" inputmode="decimal" value="{{ filters.min_amount }}"></div>
+      <div><label>Max amount</label><input name="max_amount" inputmode="decimal" value="{{ filters.max_amount }}"></div>
+      <div><label>Direction</label><select name="kind"><option value="">In and out</option>
+        <option value="out" {{ 'selected' if filters.kind == 'out' }}>Money out</option>
+        <option value="in" {{ 'selected' if filters.kind == 'in' }}>Money in</option></select></div>
+      <div><label>Status</label><select name="status"><option value="">Any</option>
+        <option value="suggested" {{ 'selected' if filters.status == 'suggested' }}>Needs review</option>
+        <option value="confirmed" {{ 'selected' if filters.status == 'confirmed' }}>Confirmed</option></select></div>
+    </div>
+    <small class="muted">Setting a date range replaces the month view.</small>
+  </details>
+</form>
+
+<section class="card flush">
+  <div class="card-head">
+    <span class="muted">{{ total }} transaction{{ 's' if total != 1 }}{% if use_range %} · {{ filters.start or '…' }} to {{ filters.end or '…' }}{% endif %}</span>
+    <span class="muted">Net (excl. transfers): <strong style="color:var(--ink)">{{ net|money_signed }}</strong></span>
+  </div>
+  {% if txns %}
+  <div class="scroll-x">
+  <table>
+    <thead><tr><th>Date</th><th>Payee</th><th>Category</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {% for t in txns %}
+    <tr data-txn="{{ t.id }}">
+      <td class="muted" style="white-space:nowrap">{{ t.date|short_date }}</td>
+      <td>
+        <a class="txn-payee" href="/transactions/{{ t.id }}?back={{ return_to|urlencode }}" style="color:inherit">{{ t.payee_clean or t.payee_raw or '—' }}</a>
+        {% if t.is_pending %}<span class="pill">pending</span>{% endif %}
+        <div class="txn-sub">{{ t.account.display_name }}{% if t.note %} · {{ t.note }}{% endif %}</div>
+      </td>
+      <td>
+        {% if t.is_transfer %}
+          <span class="pill">Transfer</span>
+        {% else %}
+          {% with categories=categories, selected=t.category_id, name='category', cls='inline js-cat', attrs='data-id="%d" data-payee="%s"'|format(t.id, (t.payee_clean or '')|e) %}{% include "partials/category_select.html" %}{% endwith %}
+          {% if t.category_status == 'suggested' %}<span class="pill warn" title="Suggested{% if t.suggestion_source %} from {{ t.suggestion_source }}{% endif %}">?</span>{% endif %}
+        {% endif %}
+      </td>
+      <td class="num {{ 'amount-in' if t.amount > 0 }}">{{ t.amount|money_signed if t.amount > 0 else t.amount|money }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if total > txns|length %}
+  <div class="empty"><a href="{{ request.url.include_query_params(limit=limit + 300) }}">Show more ({{ total - txns|length }} remaining)</a></div>
+  {% endif %}
+  {% else %}
+  <div class="empty">No transactions match.</div>
+  {% endif %}
+</section>
+{% endblock %}

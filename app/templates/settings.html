@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Settings · Finance{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Settings</h1></div>
+
+<section class="card">
+  <h2>Bank sync (Plaid)</h2>
+  <dl class="kv">
+    <dt>Status</dt><dd>{% if plaid_configured %}<span class="pill ok">configured</span> · {{ plaid_env }}{% else %}<span class="pill">not configured</span>{% endif %}</dd>
+    <dt>Products requested</dt><dd>{{ plaid_products|join(', ') }}</dd>
+    <dt>Connected institutions</dt><dd>{{ active_items }} <span class="muted">(Plaid Trial plan allows up to 10)</span></dd>
+    <dt>Automatic sync</dt><dd>{% if scheduler_enabled and sync_interval > 0 %}every {{ '%g'|format(sync_interval) }} h{% else %}off{% endif %}</dd>
+  </dl>
+  {% if not plaid_configured %}<p class="muted" style="margin-top:10px">Set <code>PLAID_CLIENT_ID</code>, <code>PLAID_SECRET</code> and <code>PLAID_ENV</code> in <code>.env</code> and restart. Until then, use CSV import and manual entry.</p>{% endif %}
+</section>
+
+{% if connections %}
+<section class="card flush">
+  <div class="card-head"><h2>Connections</h2>
+    <form method="post" action="/sync" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="next" value="/settings"><button class="small" type="submit">Sync now</button></form></div>
+  {% for c in connections %}
+  <div class="list-row">
+    <div class="main">
+      <div class="title">{{ c.institution_name or 'Connection %d'|format(c.id) }}
+        {% set cls = {'ok':'ok','login_required':'over','pending_expiration':'warn','error':'over','disconnected':''}[c.status] %}
+        <span class="pill {{ cls }}">{{ c.status.replace('_', ' ') }}</span></div>
+      <div class="txn-sub">{{ c.provider|capitalize }} · {{ account_counts[c.id] }} account{{ 's' if account_counts[c.id] != 1 }} · last sync {{ c.last_synced_at|ago }}{% if c.status_detail %} · {{ c.status_detail }}{% endif %}</div>
+    </div>
+    <div class="right" style="display:flex;gap:10px;align-items:center">
+      {% if c.needs_reconnect %}<button class="small js-link" data-provider="{{ c.provider }}" data-connection="{{ c.id }}">Reconnect</button>{% endif %}
+      {% if c.status != 'disconnected' %}
+      <form class="inline" method="post" action="/connections/{{ c.id }}/disconnect" onsubmit="return confirm('Disconnect this institution? Accounts and history stay in the app; syncing stops.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link danger" type="submit">Disconnect</button></form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Budget alerts</h2>
+  <form method="post" action="/settings/alerts" class="filters">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div><label>Default thresholds (% of limit)</label><input name="thresholds" value="{{ thresholds }}"></div>
+    <div><button type="submit">Save</button></div>
+  </form>
+  <p class="muted" style="margin-top:10px;font-size:.88rem">Each threshold alerts once per category per month, shown as a banner and a badge on Home. Override per category on the <a href="/categories">Categories</a> page.</p>
+</section>
+
+<section class="card">
+  <h2>Export</h2>
+  <p class="muted">Everything stays in this app's own database ({{ txn_count }} transactions). Exports never include bank access tokens.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a class="btn" href="/export/transactions.csv">Transactions (CSV)</a>
+    <a class="btn" href="/export/data.json">All data (JSON)</a>
+  </div>
+</section>
+
+<section class="card">
+  <h2>About</h2>
+  <dl class="kv"><dt>Currency</dt><dd>CAD</dd><dt>Time zone</dt><dd>{{ timezone }}</dd></dl>
+  <form method="post" action="/logout" style="margin-top:12px"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Sign out</button></form>
+</section>
+{% endblock %}

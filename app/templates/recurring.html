@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Recurring · Finance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Recurring</h1>
+  <div class="actions">
+    <form method="post" action="/recurring-detect" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Scan for recurring</button></form>
+  </div>
+</div>
+
+<div class="grid-2">
+  <section class="card flush">
+    <div class="card-head"><h2>Next 30 days</h2><span class="muted">{{ upcoming_total|money }}</span></div>
+    {% for o in upcoming %}
+    <div class="list-row">
+      <div class="main"><div class="title">{{ o.item.name }}</div><div class="txn-sub">{{ o.date|short_date }}{% if o.item.account %} · {{ o.item.account.display_name }}{% endif %}</div></div>
+      <div class="right">{{ o.amount|money }}</div>
+    </div>
+    {% else %}
+    <div class="empty">No confirmed bills due in the next 30 days.</div>
+    {% endfor %}
+  </section>
+  <section class="card">
+    <h2>Summary</h2>
+    <dl class="kv">
+      <dt>Confirmed bills, monthly equivalent</dt><dd>{{ (-monthly_equiv)|money }}</dd>
+      <dt>Tracked items</dt><dd>{{ rows|length }}</dd>
+    </dl>
+    <details class="more" style="margin-top:12px">
+      <summary>Add a recurring item</summary>
+      <form method="post" action="/recurring" style="margin-top:12px">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}">
+        {% include "partials/recurring_fields.html" %}
+        <button class="primary" type="submit">Add</button>
+      </form>
+    </details>
+  </section>
+</div>
+
+<section class="card flush">
+  <div class="card-head"><h2>All recurring</h2></div>
+  {% for item, f in rows %}
+  <div class="list-row">
+    <div class="main">
+      <div class="title">
+        {{ item.name }}
+        {% if f.new %}<span class="pill ok">new</span>{% endif %}
+        {% if f.missed %}<span class="pill over">missed</span>{% endif %}
+        {% if f.changed %}<span class="pill warn">amount changed</span>{% endif %}
+      </div>
+      <div class="txn-sub">
+        {{ frequencies[item.frequency] }}
+        {% if item.next_due %} · next {{ item.next_due|short_date }}{% endif %}
+        {% if item.last_seen %} · last seen {{ item.last_seen|short_date }}{% if f.changed %} at {{ item.last_amount|money }}{% endif %}{% endif %}
+        {% if item.category %} · {{ item.category.name }}{% endif %}
+      </div>
+    </div>
+    <div class="right">
+      <div class="{{ 'amount-in' if item.amount > 0 }}">{{ item.amount|money }}</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;font-size:.85rem">
+        {% if item.status == 'detected' %}
+        <form class="inline" method="post" action="/recurring/{{ item.id }}/confirm"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link" type="submit">Confirm</button></form>
+        <form class="inline" method="post" action="/recurring/{{ item.id }}/dismiss"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link danger" type="submit">Dismiss</button></form>
+        {% endif %}
+        {% if f.changed %}
+        <form class="inline" method="post" action="/recurring/{{ item.id }}/accept-amount"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link" type="submit">Use new amount</button></form>
+        {% endif %}
+        <a href="/recurring/{{ item.id }}/edit">Edit</a>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty">Nothing yet. Recurring bills are detected automatically once there are a few months of transactions, or add one above.</div>
+  {% endfor %}
+</section>
+
+{% if dismissed %}
+<details class="more"><summary>Dismissed ({{ dismissed|length }})</summary>
+  <section class="card flush" style="margin-top:8px">
+  {% for item in dismissed %}
+  <div class="list-row"><div class="main">{{ item.name }} <span class="txn-sub">{{ item.amount|money }} · {{ frequencies[item.frequency] }}</span></div>
+    <form class="inline" method="post" action="/recurring/{{ item.id }}/restore"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link" type="submit">Restore</button></form></div>
+  {% endfor %}
+  </section>
+</details>
+{% endif %}
+{% endblock %}

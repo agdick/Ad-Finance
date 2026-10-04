@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Goals · Finance{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Goals</h1></div>
+
+{% for g, p in rows %}
+<section class="card">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div>
+      <h2 style="margin-bottom:2px">{{ g.name }}</h2>
+      <div class="txn-sub">{{ 'Debt payoff' if g.type == 'debt' else 'Savings' }}{% if g.accounts %} · {{ g.accounts|map(attribute='display_name')|join(', ') }}{% endif %}</div>
+    </div>
+    <div style="text-align:right">
+      <strong>{{ p.progress|money }}</strong> <span class="muted">of {{ p.target|money }}</span>
+      <div class="txn-sub">{% if g.type == 'debt' %}{{ p.owed|money }} still owed{% else %}{{ p.remaining|money }} to go{% endif %}</div>
+    </div>
+  </div>
+  <div class="bar big {{ 'over' if p.on_track == false }}"><span style="width: {{ p.pct }}%"></span></div>
+  <div class="meta-row">
+    <span>{{ p.pct }}%</span>
+    {% if p.remaining == 0 %}<span class="pill ok">Reached</span>
+    {% elif p.pace_per_month is none %}<span>Projection needs a few weeks of {{ 'balance history' if g.progress_source == 'accounts' else 'contributions' }}</span>
+    {% elif p.projected_date %}<span>At {{ p.pace_per_month|money }}/month: {{ 'paid off' if g.type == 'debt' else 'reached' }} around <strong style="color:var(--ink)">{{ p.projected_date.strftime('%b %Y') }}</strong></span>
+    {% else %}<span>No progress at the current pace ({{ p.pace_per_month|money }}/month)</span>{% endif %}
+    {% if g.target_date %}<span>Target {{ g.target_date.strftime('%b %-d, %Y') }}{% if p.on_track is not none and p.remaining %} · {% if p.on_track %}<span class="pill ok">on track</span>{% else %}<span class="pill over">behind</span>{% endif %}{% endif %}</span>{% endif %}
+    <a href="/goals/{{ g.id }}/edit">Edit</a>
+  </div>
+  {% if g.type == 'savings' and g.progress_source == 'contributions' %}
+  <details class="more" style="margin-top:10px"><summary>Contributions ({{ g.contributions|length }})</summary>
+    <form method="post" action="/goals/{{ g.id }}/contributions" class="filters" style="margin:10px 0">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <div><label>Date</label><input type="date" name="date" value="{{ today.isoformat() }}"></div>
+      <div><label>Amount</label><input name="amount" inputmode="decimal" required placeholder="250.00"></div>
+      <div><label>Note</label><input name="note"></div>
+      <div><button type="submit">Add</button></div>
+    </form>
+    {% for c in g.contributions|reverse %}
+    <div class="list-row" style="padding-left:0;padding-right:0"><span>{{ c.date|short_date }}{% if c.note %} · <span class="muted">{{ c.note }}</span>{% endif %}</span>
+      <span>{{ c.amount|money }} <form class="inline" method="post" action="/goals/contributions/{{ c.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="link danger" type="submit" title="Remove">×</button></form></span></div>
+    {% endfor %}
+  </details>
+  {% endif %}
+</section>
+{% else %}
+<div class="card empty">No goals yet.</div>
+{% endfor %}
+
+<section class="card">
+  <details class="more" {{ 'open' if not rows }}>
+    <summary>New goal</summary>
+    <form method="post" action="/goals" style="margin-top:12px">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      {% include "partials/goal_fields.html" %}
+      <button class="primary" type="submit">Create goal</button>
+    </form>
+  </details>
+</section>
+{% endblock %}

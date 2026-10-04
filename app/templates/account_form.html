@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if account else 'Add' }} account · Finance{% endblock %}
+{% block content %}
+{% set synced = account and account.source == 'plaid' %}
+<div class="page-head"><h1>{{ account.name if account else 'Add account' }}</h1><a class="btn" href="/accounts">Back</a></div>
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+<form method="post" class="card" action="{{ '/accounts/%d/edit'|format(account.id) if account else '/accounts/new' }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% if not account %}<input type="hidden" name="next" value="{{ request.query_params.get('next', '') }}">{% endif %}
+  <div class="form-grid">
+    <div class="field"><label>Name</label><input name="name" required value="{{ account.name if account else '' }}" placeholder="e.g. RBC Chequing"></div>
+    <div class="field"><label>Institution</label><input name="institution" value="{{ account.institution or '' if account else '' }}" placeholder="e.g. RBC, Wealthsimple"></div>
+    <div class="field"><label>Type</label>
+      <select name="type" {{ 'disabled' if synced }}>{% for k, label in types.items() %}<option value="{{ k }}" {{ 'selected' if account and account.type == k }}>{{ label }}</option>{% endfor %}</select>
+      {% if synced %}<input type="hidden" name="type" value="{{ account.type }}">{% endif %}</div>
+    <div class="field"><label>Subtype</label><input name="subtype" value="{{ account.subtype or '' if account else '' }}" placeholder="e.g. TFSA, RRSP, mortgage"></div>
+    <div class="field"><label>Current balance{% if not synced %} <span class="faint">(owed, for cards/loans)</span>{% endif %}</label>
+      <input name="balance" inputmode="decimal" {{ 'disabled' if synced }} value="{{ account.current_balance|money_input if account else '' }}">
+      {% if synced %}<small class="muted">Updated by bank sync.</small>{% endif %}</div>
+    <div class="field"><label>Interest rate % <span class="faint">(loans/cards)</span></label><input name="interest_rate" inputmode="decimal" value="{{ account.interest_rate if account and account.interest_rate is not none else '' }}"></div>
+  </div>
+  {% if not account %}
+  <div class="field"><label class="check"><input type="checkbox" name="source" value="csv" {{ 'checked' if request.query_params.get('next') == 'import' }}> I'll fill this account by importing CSV statements</label></div>
+  {% endif %}
+  <button class="primary" type="submit">{{ 'Save' if account else 'Create account' }}</button>
+</form>
+{% if account %}
+<form method="post" action="/accounts/{{ account.id }}/archive">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <button class="link {{ '' if account.archived else 'danger' }}" type="submit">{{ 'Restore account' if account.archived else 'Archive account' }}</button>
+  <small class="muted">Archived accounts are hidden but their transactions are kept.</small>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf }}">
+  <title>{% block title %}Finance{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css?v=1">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232f6f62'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='sans-serif'>$</text></svg>">
+</head>
+<body>
+{% set path = request.url.path %}
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/">Finance</a>
+    <nav class="nav">
+      <a href="/" class="{{ 'active' if path == '/' }}">Home{% if nav_alert_count %}<span class="badge alert" title="Budget alerts">{{ nav_alert_count }}</span>{% endif %}</a>
+      <a href="/transactions" class="{{ 'active' if path.startswith('/transactions') }}">Transactions</a>
+      <a href="/review" class="{{ 'active' if path.startswith('/review') }}">Review{% if nav_review_count %}<span class="badge">{{ nav_review_count }}</span>{% endif %}</a>
+      <a href="/recurring" class="{{ 'active' if path.startswith('/recurring') }}">Recurring</a>
+      <a href="/goals" class="{{ 'active' if path.startswith('/goals') }}">Goals</a>
+      <a href="/accounts" class="{{ 'active' if path.startswith('/accounts') or path.startswith('/import') }}">Accounts</a>
+      <a href="/categories" class="{{ 'active' if path.startswith('/categories') }}">Categories</a>
+      <a href="/settings" class="{{ 'active' if path.startswith('/settings') }}">Settings</a>
+    </nav>
+    <form class="logout hide-sm" method="post" action="/logout">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <button class="link" type="submit">Sign out</button>
+    </form>
+  </div>
+</header>
+<main>
+  {% if flash %}<div class="flash {{ flash.kind }}">{{ flash.message }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<script src="/static/app.js?v=1"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

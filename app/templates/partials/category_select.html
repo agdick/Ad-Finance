@@ -1,0 +1,10 @@
+{# expects: categories, selected (id or None), name, cls, attrs #}
+<select name="{{ name }}" class="{{ cls or '' }}" {{ attrs|default('')|safe }}>
+  <option value="">— Uncategorized —</option>
+  {% set ns = namespace(kind=None) %}
+  {% for c in categories %}
+    {% if c.kind != ns.kind %}{% if ns.kind %}</optgroup>{% endif %}<optgroup label="{{ 'Income' if c.kind == 'income' else 'Spending' }}">{% set ns.kind = c.kind %}{% endif %}
+    <option value="{{ c.id }}" {{ 'selected' if c.id == selected }}>{{ c.name }}</option>
+  {% endfor %}
+  {% if ns.kind %}</optgroup>{% endif %}
+</select>

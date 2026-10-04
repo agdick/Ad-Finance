@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ month|month_label }} · Finance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'This month' if is_current else month|month_label }}</h1>
+  {% with base='/' %}{% include "partials/month_nav.html" %}{% endwith %}
+</div>
+
+{% for a in alerts %}
+<div class="banner {{ 'over' if a.threshold >= 100 }}">
+  <span><strong>{{ a.category.name }}</strong> reached {{ a.threshold }}% of its {{ a.limit|money }} limit
+    <span class="muted">({{ a.spent|money }} spent when it fired)</span></span>
+  <form method="post" action="/alerts/{{ a.id }}/dismiss">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="next" value="/">
+    <button class="small" type="submit">Dismiss</button>
+  </form>
+</div>
+{% endfor %}
+{% if review_count %}
+<div class="banner info">
+  <span>{{ review_count }} transaction{{ 's' if review_count != 1 }} awaiting review.</span>
+  <a class="btn small" href="/review">Review</a>
+</div>
+{% endif %}
+
+<section class="card">
+  <div class="total">
+    <div>
+      <div class="muted">Spent{% if summary.total_limit %} in budgeted categories{% endif %}</div>
+      <span class="big">{{ summary.budgeted_spent|money if summary.total_limit else summary.total_spent|money }}</span>
+      {% if summary.total_limit %}<span class="of">of {{ summary.total_limit|money }}</span>{% endif %}
+      {% if summary.has_unconfirmed %}<span class="unconfirmed-dot" title="Includes unconfirmed (suggested) categories"></span>{% endif %}
+    </div>
+    {% if summary.total_limit %}
+    <div class="muted" style="text-align:right">
+      {% set left = summary.total_limit - summary.budgeted_spent %}
+      {% if left >= 0 %}<strong style="color:var(--ink)">{{ left|money }}</strong> left{% else %}<strong style="color:var(--over)">{{ (-left)|money }}</strong> over{% endif %}
+      {% if days_left %}<br><small>{{ days_left }} day{{ 's' if days_left != 1 }} to go</small>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% if summary.total_limit %}
+  {% set p = summary.total_pct or 0 %}
+  <div class="bar big {{ 'over' if p >= 100 else 'warn' if p >= 80 }}"><span style="width: {{ [p, 100]|min }}%"></span></div>
+  {% endif %}
+  <div class="meta-row">
+    <span>All spending: <strong style="color:var(--ink)">{{ summary.total_spent|money }}</strong></span>
+    <span>Income: <a href="/transactions?month={{ month }}&kind=in"><strong>{{ summary.income|money }}</strong></a>
+      {% if summary.income_count %}<small>({{ summary.income_count }} deposit{{ 's' if summary.income_count != 1 }})</small>{% endif %}</span>
+  </div>
+</section>
+
+<section class="card flush">
+  {% for row in summary.rows %}
+  {% set p = row.pct %}
+  <a class="budget-row" href="/transactions?month={{ month }}&category={{ row.category_id }}">
+    <div class="top">
+      <span class="name">{{ row.name }}{% if row.has_unconfirmed %}<span class="unconfirmed-dot" title="Includes unconfirmed transactions"></span>{% endif %}</span>
+      <span class="nums"><strong>{{ row.spent|money }}</strong>{% if row.limit %} / {{ row.limit|money }}{% endif %}</span>
+    </div>
+    {% if row.limit %}
+    <div class="bar {{ row.level }}"><span style="width: {{ [[p, 0]|max, 100]|min }}%"></span></div>
+    <div class="sub">
+      <span>{{ p }}% used</span>
+      {% if row.remaining >= 0 %}<span>{{ row.remaining|money }} left</span>{% else %}<span class="over">{{ (-row.remaining)|money }} over</span>{% endif %}
+    </div>
+    {% else %}
+    <div class="sub"><span>No limit set</span><span>{{ row.count }} transaction{{ 's' if row.count != 1 }}</span></div>
+    {% endif %}
+  </a>
+  {% endfor %}
+  {% if summary.uncategorized %}
+  <a class="budget-row" href="/transactions?month={{ month }}&category=none">
+    <div class="top">
+      <span class="name">Uncategorized<span class="unconfirmed-dot"></span></span>
+      <span class="nums"><strong>{{ summary.uncategorized.spent|money }}</strong></span>
+    </div>
+    <div class="sub"><span>Not counted against any limit</span><span>{{ summary.uncategorized.count }} transaction{{ 's' if summary.uncategorized.count != 1 }}</span></div>
+  </a>
+  {% endif %}
+  {% if not summary.rows and not summary.uncategorized %}
+  <div class="empty">
+    No spending or limits for this month yet.<br>
+    <a href="/categories">Set category limits</a> · <a href="/accounts">Connect or import accounts</a>
+  </div>
+  {% endif %}
+</section>
+{% if summary.has_unconfirmed %}
+<p class="muted" style="font-size:.85rem"><span class="unconfirmed-dot" style="margin:0 4px 0 0"></span>Totals include transactions whose category is still a suggestion. <a href="/review">Review them</a> to confirm.</p>
+{% endif %}
+{% endblock %}

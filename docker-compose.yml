@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    image: finance-app:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - finance-data:/data
+
+volumes:
+  finance-data:
