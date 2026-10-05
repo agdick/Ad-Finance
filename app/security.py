@@ -20,7 +20,7 @@ def _fernet() -> Fernet:
     try:
         return Fernet(key.encode())
     except (ValueError, TypeError) as exc:
-        raise CredentialError("ENCRYPTION_KEY is not a valid Fernet key") from exc
+        raise CredentialError("ENCRYPTION_KEY in .env is not a valid key; generate a new one (see .env.example) and restart.") from exc
 
 
 def encrypt_credentials(data: dict) -> str:

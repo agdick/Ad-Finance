@@ -68,6 +68,16 @@ def get_settings() -> Settings:
     )
 
 
+def encryption_key_valid(key: str) -> bool:
+    from cryptography.fernet import Fernet
+
+    try:
+        Fernet(key.encode())
+    except (ValueError, TypeError):
+        return False
+    return True
+
+
 def validate_settings(settings: Settings) -> list[str]:
     """Return a list of human-readable problems that prevent the app from starting."""
     problems = []
@@ -75,6 +85,11 @@ def validate_settings(settings: Settings) -> list[str]:
         problems.append("SECRET_KEY must be set to a random string of at least 32 characters.")
     if not settings.encryption_key:
         problems.append("ENCRYPTION_KEY must be set (generate one with the command in .env.example).")
+    elif not encryption_key_valid(settings.encryption_key):
+        problems.append(
+            f"ENCRYPTION_KEY is not a valid key (it is {len(settings.encryption_key)} characters; a valid key is 44 "
+            "characters ending in '='). Generate a new one with the command in .env.example."
+        )
     if not settings.app_password:
         problems.append("APP_PASSWORD must be set.")
     return problems

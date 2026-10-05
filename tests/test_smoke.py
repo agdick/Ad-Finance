@@ -29,3 +29,19 @@ def test_post_without_csrf_rejected(auth_client):
 def test_pages_render(auth_client, path):
     r = auth_client.get(path)
     assert r.status_code == 200, r.text[:2000]
+
+
+@pytest.mark.parametrize("key", ["not-a-key", "abc123" * 7, "x" * 44])
+def test_invalid_encryption_key_rejected_at_startup(key):
+    import dataclasses
+
+    from app.config import get_settings, validate_settings
+
+    problems = validate_settings(dataclasses.replace(get_settings(), encryption_key=key))
+    assert any("ENCRYPTION_KEY is not a valid key" in p for p in problems)
+
+
+def test_valid_encryption_key_accepted():
+    from app.config import get_settings, validate_settings
+
+    assert validate_settings(get_settings()) == []
