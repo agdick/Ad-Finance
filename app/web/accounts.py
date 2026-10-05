@@ -176,6 +176,32 @@ def link_start(payload: dict = Body(...), db: Session = Depends(get_db)):
     return JSONResponse({"ok": True, **config})
 
 
+LINK_EVENT_FIELDS = (
+    "event_name",
+    "view_name",
+    "error_type",
+    "error_code",
+    "error_message",
+    "exit_status",
+    "institution_name",
+    "institution_id",
+    "link_session_id",
+    "request_id",
+)
+
+
+@router.post("/api/connections/link-event", dependencies=[Depends(verify_csrf)])
+def link_event(payload: dict = Body(...)):
+    """Log a step of the bank-linking widget. Only whitelisted, non-secret fields are kept."""
+    parts = []
+    for key in LINK_EVENT_FIELDS:
+        value = payload.get(key)
+        if value not in (None, ""):
+            parts.append(f"{key}={str(value)[:200]!r}")
+    log.info("Link event: %s", " ".join(parts) or "(empty)")
+    return JSONResponse({"ok": True})
+
+
 @router.post("/api/connections/complete", dependencies=[Depends(verify_csrf)])
 def link_complete(request: Request, payload: dict = Body(...), db: Session = Depends(get_db)):
     provider = payload.get("provider", "plaid")

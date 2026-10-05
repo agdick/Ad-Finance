@@ -73,7 +73,11 @@
           public_token,
           metadata: { institution: metadata.institution || null },
         }),
-        onExit: (err) => {
+        // Record each Link step in the server log, so failures that Link handles on its own
+        // screens (and never reports back as an error) can still be diagnosed.
+        onEvent: (eventName, metadata) => reportLinkEvent(eventName, metadata),
+        onExit: (err, metadata) => {
+          reportLinkEvent("EXIT", { ...(metadata || {}), ...(err || {}) });
           if (!err) return;
           // Include Plaid's error code (e.g. MFA_NOT_SUPPORTED) so the cause can be looked up.
           const text = err.display_message || err.error_message || "Plaid Link closed.";
@@ -83,6 +87,29 @@
       handler.open();
     }),
   };
+
+  function reportLinkEvent(eventName, m) {
+    m = m || {};
+    const body = {
+      event_name: eventName,
+      view_name: m.view_name,
+      error_type: m.error_type,
+      error_code: m.error_code,
+      error_message: m.error_message,
+      exit_status: m.exit_status || m.status,
+      institution_id: m.institution_id || m.institution?.institution_id,
+      institution_name: m.institution_name || m.institution?.name,
+      link_session_id: m.link_session_id,
+      request_id: m.request_id,
+    };
+    fetch("/api/connections/link-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+      body: JSON.stringify(body),
+      credentials: "same-origin",
+      keepalive: true,
+    }).catch(() => {});
+  }
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {

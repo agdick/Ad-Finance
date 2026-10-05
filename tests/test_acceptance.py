@@ -440,3 +440,16 @@ def test_repo_has_no_secrets():
         if line.startswith(("PLAID_SECRET=", "PLAID_CLIENT_ID=", "APP_PASSWORD=", "ENCRYPTION_KEY=")):
             assert line.split("=", 1)[1].strip() in {"", "change-me"}, line
     assert ".env" in (root / ".gitignore").read_text().splitlines()
+
+
+def test_link_events_logged_without_secrets(auth_client, caplog):
+    caplog.set_level(logging.INFO)
+    r = auth_client.post(
+        "/api/connections/link-event",
+        json={"event_name": "ERROR", "error_code": "NO_ACCOUNTS", "institution_name": "RBC Royal Bank",
+              "public_token": "public-production-SECRET", "access_token": "access-production-SECRET"},
+        headers={"X-CSRF-Token": auth_client.csrf},
+    )
+    assert r.status_code == 200
+    assert "error_code='NO_ACCOUNTS'" in caplog.text and "RBC Royal Bank" in caplog.text
+    assert "SECRET" not in caplog.text
